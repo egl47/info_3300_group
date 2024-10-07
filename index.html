@@ -7,28 +7,278 @@
   <h3 id="name"></h3>
 
   <p>
-    <svg id="graph1" width="600" height="600"></svg>
+    <svg id="graph1" width="700" height="600"></svg>
     <script>
 
-      const svg2 = d3.select("#graph1");
+      const svg = d3.select("#graph1");
+      
+      const inLeftBoundary = (point) => {
+        const leftTop0 = [40.874459, -73.927099];
+        const leftTop1 = [40.751971, -74.008969];
+        const leftBottom0 = [40.754027, -74.007429];
+        const leftBottom1 = [40.704137, -74.016950];
 
-      d3.csv("uber.csv").then( data => {
-        cutdata = data.slice(1, 1001)
-        console.log(cutdata);
+        let crossProductTop = (leftTop1[0] - leftTop0[0]) * (point[1] - leftTop0[1]) - (leftTop1[1] - leftTop0[1]) * (point[0] - leftTop0[0]) < 0;
+        let crossProductBottom = (leftBottom1[0] - leftBottom0[0]) * (point[1] - leftBottom0[1]) - (leftBottom1[1] - leftBottom0[1]) * (point[0] - leftBottom0[0]) < 0;
 
-        const timeParser = d3.timeParse("%Y-%m-%d %H:%M:%S");
+        return crossProductTop || crossProductBottom
 
-        const s = cutdata[0]['pickup_datetime']
+      }
 
-        cutdata.forEach( d => d['date'] = timeParser(d['pickup_datetime'].substring(0, 19)))
+      const inRightBoundary = (point) => {
+        const rightTop0 = [40.797614, -73.931045];
+        const rightTop1 = [40.738786, -73.975531];
+        const rightBottom0 = [40.745758, -73.971551];
+        const rightBottom1 = [40.711971, -73.978401];
 
-        console.log(cutdata)
-       
-      });
+        let crossProductTop = (rightTop1[0] - rightTop0[0]) * (point[1] - rightTop0[1]) - (rightTop1[1] - rightTop0[1]) * (point[0] - rightTop0[0]) < 0;
+        let crossProductBottom = (rightBottom1[0] - rightBottom0[0]) * (point[1] - rightBottom0[1]) - (rightBottom1[1] - rightBottom0[1]) * (point[0] - rightBottom0[0]) < 0;
+
+        return crossProductTop || crossProductBottom
+
+      }
+
+      const manhattanLocation = (point) => {
+        const middleLeft = [40.772484, -73.993813];
+        const middleRight = [40.758943, -73.958751];
+        const lowerLeft = [40.742697, -74.009248];
+        const lowerRight = [40.726945, -73.971724];
+
+        const mMiddle = (middleRight[0] - middleLeft[0]) / (middleRight[1] - middleLeft[1]);
+        const bMiddle = middleLeft[0] - mMiddle * middleLeft[1];
+
+        const mLower = (lowerRight[0] - lowerLeft[0]) / (lowerRight[1] - lowerLeft[1]);
+        const bLower = lowerLeft[0] - mLower * lowerLeft[1];
+
+        if (point[0] > mMiddle * point[1] + bMiddle) {
+            return "upper"; 
+        } else if (point[0] > mLower * point[1] + bLower) {
+            return "middle";   
+        } else {
+            return "lower";
+        } 
+      }
+      
+      const width = svg.attr('width');
+      const height = svg.attr('height');
+      const margins = {top: 70, right: 10, bottom: 76, left: 70};
+      const chartWidth = width - margins.left - margins.right;
+      const chartHeight = height - margins.top - margins.bottom;
+
+      let chartArea = svg.append('g')
+                        .attr('transform',`translate(${margins.left},${margins.top})`);
 
     
+      d3.csv('uber.csv')   
+        .then( (data) => {
+          
+          cutdata = data.slice(1, 100001)
+
+          cutdata.forEach( (d, i) => {
+              d['lat'] = Number(d['pickup_latitude']);
+              d['lon'] = Number(d['pickup_longitude']);
+              d['price'] = Number(d['fare_amount']);
+          });
+
+          console.log(cutdata);
+
+          cutdata = cutdata.filter( (d) => {
+
+          const point = [d['lat'], d['lon']];
+          return inLeftBoundary(point) && inRightBoundary(point) && d['price'] != 0;
+          } );
+
+          console.log(cutdata);
+
+          const timeParser = d3.timeParse("%Y-%m-%d %H:%M:%S");
+          const dTime = (d) => {
+                hours = d['date'].getHours();
+                if (hours >= 0 && hours <= 6) {
+                    return "12:01am-6:00am";
+                } else if (hours > 6 && hours <= 12) {
+                    return "6:01am-12:00pm";
+                } else if (hours > 12 && hours <= 18) {
+                    return "12:01pm-6:00pm";
+                } else {
+                    return "6:01pm-12:00am";
+                }
+          }
+
+          cutdata.forEach( (d, i) => {
+              d['location'] = manhattanLocation([d['lat'], d['lon']]);
+              d['date'] = timeParser(d['pickup_datetime'].substring(0, 19));
+              d['time'] = dTime(d);
+              d['month'] = d3.timeMonth(d['date']).getMonth();});
+
+    
+          console.log(cutdata); 
+
+          let months = {0: "Jan", 1: "Feb", 2: "Mar", 3: "Apr", 4: "May", 5: "Jun", 6: "Jul", 7: "Aug", 8: "Sep", 9: "Oct", 10: "Nov", 11: "Dec"};
+
+          let avgsMonths = {"upper": [], "middle": [], "lower": []};
+
+          for (loc in Object.keys(avgsMonths)) {
+            for (let i = 0; i < 12; i++) {
+              avgsMonths[Object.keys(avgsMonths)[loc]].push({
+              "count": 0,
+              "price": 0,
+              "avg": 0,
+            })
+          }}
+
+          
+          cutdata.forEach( (d, i) => {
+            avgsMonths[d['location']][d['month']]['count'] += 1;
+            avgsMonths[d['location']][d['month']]['price'] += d['price'];
+          })
+
+          console.log(avgsMonths);
+
+          averagesMonths = []
+          
+          for (l in avgsMonths) {
+            for (let i = 0; i < 12; i++) {
+              avgsMonths[l][i]['avg'] = avgsMonths[l][i]['price'] / avgsMonths[l][i]['count'];
+              averagesMonths.push({"location": l, "month": months[i], "avg": avgsMonths[l][i]['avg']});
+          }}
+
+          console.log(averagesMonths);
+
+          const avgMonthsExtent = d3.extent(averagesMonths, d => d.avg);
+
+          const priceScale = d3.scaleLinear().domain([10,avgMonthsExtent[1]]).range([chartHeight, 0]);
+
+          let leftGridlines = d3.axisLeft(priceScale)
+                                .tickSize(-chartWidth-10)
+                                .tickFormat("");
+          svg.append("g")
+              .attr("class", "y gridlines")
+              .attr("transform",`translate(${margins.left-10},${margins.top})`)
+              .call(leftGridlines);
+
+          let leftAxis = d3.axisLeft(priceScale);
+          svg.append("g")
+                    .attr("class", "y axis")
+                    .attr("transform",`translate(${margins.left-10},${margins.top})`)
+                    .call(leftAxis)
+
+          const monthLabelFormat = (d) => { return d.split(' ')[1];}
+
+          const timeScale = d3.scaleBand()
+                              .domain(averagesMonths.map(d => `${d.location} ${d.month}`))
+                              .range([0, chartWidth])
+                              .padding(0.18);
 
 
+          let bottomGridlines = d3.axisBottom(timeScale)
+                                    .tickFormat("")
+                                    .tickSize(0);
+          svg.append("g")
+                  .attr("class", "x gridlines")
+                  .attr("transform", `translate(${margins.left}, ${margins.top+chartHeight+10})`)
+                  .call(bottomGridlines);
+
+          let bottomAxis = d3.axisBottom(timeScale).ticks(12).tickFormat(monthLabelFormat);
+
+          svg.append("g")
+                  .attr("class", "x axis")
+                  .attr("transform", `translate(${margins.left}, ${margins.top+chartHeight+10})`)
+                  .call(bottomAxis)
+                  .selectAll("text")
+                  .style("text-anchor", "end")
+                  .attr("dx", "-.8em")
+                  .attr("dy", ".15em")
+                  .attr("transform", "rotate(-45)");
+
+
+          const xLabel = svg.append("text")
+              .attr("class", "axis-label")
+              .attr("text-anchor", "middle")
+              .attr("x", (chartWidth+margins.left + margins.right + 30) / 2)
+              .attr("y", height-20)
+              .text("Month in which Uber Trip was taken");
+
+          const yLabel = svg.append("text")
+              .attr("class", "axis-label")
+              .attr("text-anchor", "middle")
+              .attr("x", -((chartHeight + margins.top)/ 2))  
+              .attr("y", margins.left - 45)
+              .attr("transform", "rotate(-90)")
+              .text("Average Uber Fare Amount (USD)");
+
+          const chartTitle = svg.append("text")
+            .attr("class", "chart-title")
+            .attr("text-anchor", "middle")
+            .attr("x", (chartWidth+margins.left + 20) / 2)
+            .attr("y", (margins.top-10) / 2) 
+            .text("Average Uber Fare Amount by Location in Manhattan and Month");
+          
+          let colorScale = d3.scaleOrdinal()
+                              .domain(["lower", "middle", "upper"]) 
+                              .range(["red", "yellow", "blue"]);  
+
+          averagesMonths.forEach((d,i) => {
+
+            chartArea.append("rect")
+              .attr("class", "bar")
+              .attr("x", timeScale(`${d.location} ${d.month}`))
+              .attr("y", priceScale(d['avg']))
+              .attr("width", timeScale.bandwidth())
+              .attr("height", chartHeight - priceScale(d['avg']))
+              .attr("fill", colorScale(d.location))
+              .attr("opacity", 0.85)
+              .attr("stroke", "black")
+              .attr("stroke-width", 1);
+          });
+
+        svg.append("image")
+         .attr("xlink:href", "uberlogo.png")
+         .attr("x", 95)
+         .attr("y", 110)
+         .attr("width", 100)
+         .attr("height", 70); 
+
+
+      
+      const legendData = [
+          {label: "Uptown", color: "blue"},
+          {label: "Midtown", color: "yellow"},
+          {label: "Downtown", color: "red"} 
+      ];
+
+      const legendPadding = 20;
+
+      const legend = svg.append("g")
+                        .attr("class", "legend")
+                        .attr("transform", `translate(${margins.left}, ${margins.top - legendPadding})`);  
+      const legendWidth = 120; 
+      const legendHeight = legendData.length * 20 + 10;
+
+      legend.append("rect")
+          .attr("x", 15) 
+          .attr("y", -5)
+          .attr("width", legendWidth)
+          .attr("height", legendHeight)
+          .attr("fill", "lightgray") 
+          .attr("stroke", "black")    
+          .attr("rx", 5)              
+          .attr("ry", 5);             
+
+      legendData.forEach((d, i) => {
+        legend.append("rect")
+            .attr("x", 20)
+            .attr("y", i * 20)
+            .attr("width", 15)
+            .attr("height", 15)
+            .attr("fill", d.color);
+        legend.append("text")
+            .attr("x", 45)
+            .attr("y", i * 20 + 12)
+            .text(d.label)
+            .style("font-size", "12px")
+            .attr("alignment-baseline", "middle");});
+          
+      });
     </script>
   </p>
 </body></html>
