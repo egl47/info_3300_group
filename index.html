@@ -1,17 +1,34 @@
 <html>
-    <body>
+ 
+<head><script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+
+<body>
+  <h3 id="name"></h3>
+
+  <p>
+    <svg id="graph1" width="600" height="600"></svg>
+    <script>
+
+      const svg2 = d3.select("#graph1");
+
+      d3.csv("uber.csv").then( data => {
+        cutdata = data.slice(1, 1001)
+        console.log(cutdata);
+
+        const timeParser = d3.timeParse("%Y-%m-%d %H:%M:%S");
+
+        const s = cutdata[0]['pickup_datetime']
+
+        cutdata.forEach( d => d['date'] = timeParser(d['pickup_datetime'].substring(0, 19)))
+
+        console.log(cutdata)
+       
+      });
+
+    
 
 
-
-
-
-
-
-
-
-
-
-
-
-    </body>
-</html>
+    </script>
+  </p>
+</body></html>
