@@ -21,6 +21,9 @@
             text-anchor: middle;
             font-family: 'Arial', sans-serif;
         }
+        .gridlines line {
+                    stroke: #bdbdbd;
+            }
     </style>
 </head>
 <body>
@@ -316,10 +319,9 @@
           let leftGridlines = d3.axisLeft(priceScale)
                                 .tickSize(-chartWidth-10)
                                 .tickFormat("");
-          svg2.append("g")
+          chartArea.append("g")
               .attr("class", "y gridlines")
-              .attr("transform",`translate(${margins.left-10},${margins.top})`)
-              .call(leftGridlines);
+              .attr("transform",`translate(${margins.left-80},${margins.top-70})`)              .call(leftGridlines);
 
           let leftAxis = d3.axisLeft(priceScale);
           svg2.append("g")
@@ -390,7 +392,7 @@
               .attr("width", timeScale.bandwidth())
               .attr("height", chartHeight - priceScale(d['avg']))
               .attr("fill", colorScale(d.location))
-              .attr("opacity", 0.85)
+              .attr("opacity", 1)
               .attr("stroke", "black")
               .attr("stroke-width", 1);
           });
