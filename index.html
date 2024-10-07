@@ -1,16 +1,191 @@
-<html>
- 
-<head><script src="https://d3js.org/d3.v7.min.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heatmap Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .axis-label {
+            font-size: 12px;
+            font-family: 'Arial', sans-serif;
+        }
+        .heatmap-title {
+            font-size: 16px;
+            font-weight: bold;
+            text-anchor: middle;
+            font-family: 'Arial', sans-serif;
+        }
+        .subtitle {
+            font-size: 12px;
+            text-anchor: middle;
+            font-family: 'Arial', sans-serif;
+        }
+    </style>
 </head>
-
 <body>
-  <h3 id="name"></h3>
-
-  <p>
-    <svg id="graph1" width="700" height="600"></svg>
+    <h3>Everett Lee - egl47</h3>
+    <svg id="canvas" width="800" height="600"></svg>
     <script>
+        d3.csv("sample.csv").then(function(data) {
 
-      const svg = d3.select("#graph1");
+            function convertToEST(utcDateTime) {
+                const utcDate = new Date(utcDateTime);
+                utcDate.setHours(utcDate.getHours() - 5);
+                return utcDate;
+            }
+
+            let processedData = [];
+
+            data.forEach(function(d) {
+                const estDate = convertToEST(d['pickup_datetime']);
+
+                const dayOfWeek = estDate.toLocaleString('en-US', { weekday: 'long' });
+                const hourOfDay = estDate.getHours();
+
+                processedData.push({
+                    dayOfWeek: dayOfWeek,
+                    hourOfDay: hourOfDay
+                });
+            });
+
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            let heatmapData = {};
+
+            for (let hour = 0; hour < 24; hour++) {
+                heatmapData[hour] = {};
+                days.forEach(day => {
+                    heatmapData[hour][day] = 0;
+                });
+            }
+
+            processedData.forEach(function(d) {
+                heatmapData[d.hourOfDay][d.dayOfWeek]++;
+            });
+            
+            let heatmapArray = [];
+            for (let hour = 0; hour < 24; hour++) {
+                days.forEach(day => {
+                    heatmapArray.push({hour: hour, day: day, value: heatmapData[hour][day]});
+                });
+            }
+
+            const margin = {top: 80, right: 80, bottom: 50, left: 50},
+                width = 600 - margin.left - margin.right,
+                height = 600 - margin.top - margin.bottom;
+
+            const svg = d3.select("#canvas")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", -margin.top / 2 + 10)
+                .attr("class", "heatmap-title")
+                .text("Uber Pickup Counts by Hour and Day of Week");
+
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", -margin.top / 2 + 30)
+                .attr("class", "subtitle")
+                .text("In New York City (EST) randomly sampled from 2009-2015")
+
+            const x = d3.scaleBand()
+                .domain(days)
+                .range([0, width])
+                .padding(0.01);
+
+            const y = d3.scaleBand()
+                .domain(d3.range(24))
+                .range([height, 0])
+                .padding(0.01);
+
+            const colorScale = d3.scaleSequential()
+                .interpolator(d3.interpolateInferno)
+                .domain([d3.max(heatmapArray, d => d.value), 0]);
+
+            svg.selectAll()
+                .data(heatmapArray)
+                .enter()
+                .append("rect")
+                .attr("x", d => x(d.day))
+                .attr("y", d => y(d.hour))
+                .attr("width", x.bandwidth())
+                .attr("height", y.bandwidth())
+                .style("fill", d => colorScale(d.value));
+
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x));
+
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 10)
+                .style("text-anchor", "middle")
+                .text("Day of Week")
+                .attr("class", "axis-label");
+
+            svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -margin.left + 20)
+                .attr("x", -height / 2)
+                .style("text-anchor", "middle")
+                .text("Hour of Day")
+                .attr("class", "axis-label");
+
+            const legendHeight = 430; 
+            const legendWidth = 20;
+
+            const legendSvg = svg.append("g")
+                .attr("transform", `translate(${width + 10}, ${height - legendHeight - 20})`);
+
+            const defs = legendSvg.append("defs");
+            const linearGradient = defs.append("linearGradient")
+                .attr("id", "linear-gradient");
+
+            linearGradient.attr("x1", "0%")
+                .attr("y1", "100%")
+                .attr("x2", "0%")
+                .attr("y2", "0%");
+
+            linearGradient.selectAll("stop")
+                .data(colorScale.ticks().map((t, i, n) => ({offset: `${100 * i / n.length}%`, color: colorScale(t)})))
+                .enter().append("stop")
+                .attr("offset", d => d.offset)
+                .attr("stop-color", d => d.color);
+
+            legendSvg.append("rect")
+                .attr("width", legendWidth)
+                .attr("height", legendHeight)
+                .style("fill", "url(#linear-gradient)");
+
+            const legendScale = d3.scaleLinear()
+                .domain(colorScale.domain())
+                .range([0, legendHeight]);
+
+            const legendAxis = d3.axisRight(legendScale)
+                .ticks(6)
+                .tickSize(6)
+                .tickFormat(d3.format(".0f"));
+
+            legendSvg.append("g")
+                .attr("transform", `translate(${legendWidth}, 0)`)
+                .call(legendAxis);
+        });
+
+    </script>
+
+
+    <h3>Ignazio Perez Romero - igp4</h3>
+    <svg id="graph2" width="700" height="600"></svg>
+    <script>
+      const svg2 = d3.select("#graph2");
       
       const inLeftBoundary = (point) => {
         const leftTop0 = [40.874459, -73.927099];
@@ -59,13 +234,13 @@
         } 
       }
       
-      const width = svg.attr('width');
-      const height = svg.attr('height');
+      const width = svg2.attr('width');
+      const height = svg2.attr('height');
       const margins = {top: 70, right: 10, bottom: 76, left: 70};
       const chartWidth = width - margins.left - margins.right;
       const chartHeight = height - margins.top - margins.bottom;
 
-      let chartArea = svg.append('g')
+      let chartArea = svg2.append('g')
                         .attr('transform',`translate(${margins.left},${margins.top})`);
 
     
@@ -80,15 +255,11 @@
               d['price'] = Number(d['fare_amount']);
           });
 
-          console.log(cutdata);
-
           cutdata = cutdata.filter( (d) => {
 
           const point = [d['lat'], d['lon']];
           return inLeftBoundary(point) && inRightBoundary(point) && d['price'] != 0;
           } );
-
-          console.log(cutdata);
 
           const timeParser = d3.timeParse("%Y-%m-%d %H:%M:%S");
           const dTime = (d) => {
@@ -111,8 +282,6 @@
               d['month'] = d3.timeMonth(d['date']).getMonth();});
 
     
-          console.log(cutdata); 
-
           let months = {0: "Jan", 1: "Feb", 2: "Mar", 3: "Apr", 4: "May", 5: "Jun", 6: "Jul", 7: "Aug", 8: "Sep", 9: "Oct", 10: "Nov", 11: "Dec"};
 
           let avgsMonths = {"upper": [], "middle": [], "lower": []};
@@ -132,8 +301,6 @@
             avgsMonths[d['location']][d['month']]['price'] += d['price'];
           })
 
-          console.log(avgsMonths);
-
           averagesMonths = []
           
           for (l in avgsMonths) {
@@ -142,8 +309,6 @@
               averagesMonths.push({"location": l, "month": months[i], "avg": avgsMonths[l][i]['avg']});
           }}
 
-          console.log(averagesMonths);
-
           const avgMonthsExtent = d3.extent(averagesMonths, d => d.avg);
 
           const priceScale = d3.scaleLinear().domain([10,avgMonthsExtent[1]]).range([chartHeight, 0]);
@@ -151,13 +316,13 @@
           let leftGridlines = d3.axisLeft(priceScale)
                                 .tickSize(-chartWidth-10)
                                 .tickFormat("");
-          svg.append("g")
+          svg2.append("g")
               .attr("class", "y gridlines")
               .attr("transform",`translate(${margins.left-10},${margins.top})`)
               .call(leftGridlines);
 
           let leftAxis = d3.axisLeft(priceScale);
-          svg.append("g")
+          svg2.append("g")
                     .attr("class", "y axis")
                     .attr("transform",`translate(${margins.left-10},${margins.top})`)
                     .call(leftAxis)
@@ -169,18 +334,17 @@
                               .range([0, chartWidth])
                               .padding(0.18);
 
-
-          let bottomGridlines = d3.axisBottom(timeScale)
+           let bottomGridlines = d3.axisBottom(timeScale)
                                     .tickFormat("")
                                     .tickSize(0);
-          svg.append("g")
+          svg2.append("g")
                   .attr("class", "x gridlines")
                   .attr("transform", `translate(${margins.left}, ${margins.top+chartHeight+10})`)
                   .call(bottomGridlines);
 
           let bottomAxis = d3.axisBottom(timeScale).ticks(12).tickFormat(monthLabelFormat);
 
-          svg.append("g")
+          svg2.append("g")
                   .attr("class", "x axis")
                   .attr("transform", `translate(${margins.left}, ${margins.top+chartHeight+10})`)
                   .call(bottomAxis)
@@ -191,14 +355,14 @@
                   .attr("transform", "rotate(-45)");
 
 
-          const xLabel = svg.append("text")
+          const xLabel = svg2.append("text")
               .attr("class", "axis-label")
               .attr("text-anchor", "middle")
               .attr("x", (chartWidth+margins.left + margins.right + 30) / 2)
               .attr("y", height-20)
               .text("Month in which Uber Trip was taken");
 
-          const yLabel = svg.append("text")
+          const yLabel = svg2.append("text")
               .attr("class", "axis-label")
               .attr("text-anchor", "middle")
               .attr("x", -((chartHeight + margins.top)/ 2))  
@@ -206,7 +370,7 @@
               .attr("transform", "rotate(-90)")
               .text("Average Uber Fare Amount (USD)");
 
-          const chartTitle = svg.append("text")
+          const chartTitle = svg2.append("text")
             .attr("class", "chart-title")
             .attr("text-anchor", "middle")
             .attr("x", (chartWidth+margins.left + 20) / 2)
@@ -231,7 +395,7 @@
               .attr("stroke-width", 1);
           });
 
-        svg.append("image")
+        svg2.append("image")
          .attr("xlink:href", "uberlogo.png")
          .attr("x", 95)
          .attr("y", 110)
@@ -248,7 +412,7 @@
 
       const legendPadding = 20;
 
-      const legend = svg.append("g")
+      const legend = svg2.append("g")
                         .attr("class", "legend")
                         .attr("transform", `translate(${margins.left}, ${margins.top - legendPadding})`);  
       const legendWidth = 120; 
@@ -280,5 +444,4 @@
           
       });
     </script>
-  </p>
-</body></html>
+</body>
