@@ -1,17 +1,187 @@
-<html>
-    <body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heatmap Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .axis-label {
+            font-size: 12px;
+            font-family: 'Arial', sans-serif;
+        }
+        .heatmap-title {
+            font-size: 16px;
+            font-weight: bold;
+            text-anchor: middle;
+            font-family: 'Arial', sans-serif;
+        }
+        .subtitle {
+            font-size: 12px;
+            text-anchor: middle;
+            font-family: 'Arial', sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <h3>Everett Lee - egl47</h3>
+    <svg id="canvas" width="800" height="600"></svg>
+    <script>
+        d3.csv("sample.csv").then(function(data) {
 
+            console.log(data);
 
+            function convertToEST(utcDateTime) {
+                const utcDate = new Date(utcDateTime);
+                utcDate.setHours(utcDate.getHours() - 5);
+                return utcDate;
+            }
 
+            let processedData = [];
 
+            data.forEach(function(d) {
+                const estDate = convertToEST(d['pickup_datetime']);
 
+                const dayOfWeek = estDate.toLocaleString('en-US', { weekday: 'long' });
+                const hourOfDay = estDate.getHours();
 
+                processedData.push({
+                    dayOfWeek: dayOfWeek,
+                    hourOfDay: hourOfDay
+                });
+            });
 
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            let heatmapData = {};
 
+            for (let hour = 0; hour < 24; hour++) {
+                heatmapData[hour] = {};
+                days.forEach(day => {
+                    heatmapData[hour][day] = 0;
+                });
+            }
 
+            processedData.forEach(function(d) {
+                heatmapData[d.hourOfDay][d.dayOfWeek]++;
+            });
 
+            console.log(heatmapData);
+            
+            let heatmapArray = [];
+            for (let hour = 0; hour < 24; hour++) {
+                days.forEach(day => {
+                    heatmapArray.push({hour: hour, day: day, value: heatmapData[hour][day]});
+                });
+            }
 
+            const margin = {top: 80, right: 80, bottom: 50, left: 50},
+                width = 600 - margin.left - margin.right,
+                height = 600 - margin.top - margin.bottom;
 
+            const svg = d3.select("#canvas")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
-    </body>
-</html>
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", -margin.top / 2 + 10)
+                .attr("class", "heatmap-title")
+                .text("Uber Pickup Counts by Hour and Day of Week");
+
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", -margin.top / 2 + 30)
+                .attr("class", "subtitle")
+                .text("In New York City (EST) randomly sampled from 2009-2015")
+
+            const x = d3.scaleBand()
+                .domain(days)
+                .range([0, width])
+                .padding(0.01);
+
+            const y = d3.scaleBand()
+                .domain(d3.range(24))
+                .range([height, 0])
+                .padding(0.01);
+
+            const colorScale = d3.scaleSequential()
+                .interpolator(d3.interpolateInferno)
+                .domain([d3.max(heatmapArray, d => d.value), 0]);
+
+            svg.selectAll()
+                .data(heatmapArray)
+                .enter()
+                .append("rect")
+                .attr("x", d => x(d.day))
+                .attr("y", d => y(d.hour))
+                .attr("width", x.bandwidth())
+                .attr("height", y.bandwidth())
+                .style("fill", d => colorScale(d.value));
+
+            svg.append("g")
+                .attr("transform", `translate(0,${height})`)
+                .call(d3.axisBottom(x));
+
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", height + margin.bottom - 10)
+                .style("text-anchor", "middle")
+                .text("Day of Week")
+                .attr("class", "axis-label");
+
+            svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -margin.left + 20)
+                .attr("x", -height / 2)
+                .style("text-anchor", "middle")
+                .text("Hour of Day")
+                .attr("class", "axis-label");
+
+            const legendHeight = 430; 
+            const legendWidth = 20;
+
+            const legendSvg = svg.append("g")
+                .attr("transform", `translate(${width + 10}, ${height - legendHeight - 20})`);
+
+            const defs = legendSvg.append("defs");
+            const linearGradient = defs.append("linearGradient")
+                .attr("id", "linear-gradient");
+
+            linearGradient.attr("x1", "0%")
+                .attr("y1", "100%")
+                .attr("x2", "0%")
+                .attr("y2", "0%");
+
+            linearGradient.selectAll("stop")
+                .data(colorScale.ticks().map((t, i, n) => ({offset: `${100 * i / n.length}%`, color: colorScale(t)})))
+                .enter().append("stop")
+                .attr("offset", d => d.offset)
+                .attr("stop-color", d => d.color);
+
+            legendSvg.append("rect")
+                .attr("width", legendWidth)
+                .attr("height", legendHeight)
+                .style("fill", "url(#linear-gradient)");
+
+            const legendScale = d3.scaleLinear()
+                .domain(colorScale.domain())
+                .range([0, legendHeight]);
+
+            const legendAxis = d3.axisRight(legendScale)
+                .ticks(6)
+                .tickSize(6)
+                .tickFormat(d3.format(".0f"));
+
+            legendSvg.append("g")
+                .attr("transform", `translate(${legendWidth}, 0)`)
+                .call(legendAxis);
+        });
+
+    </script>
+</body>
