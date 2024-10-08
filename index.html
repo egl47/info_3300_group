@@ -27,7 +27,7 @@
     </style>
 </head>
 <body>
-    <h3>Everett Lee - egl47</h3>
+    <h3>Group Names/NetID's: Everett Lee - egl47, Ignazio Perez Romero - igp4, Akhil Fernando-Bell - aaf65, Gabriel Godoy - gg374</h3>
     <svg id="canvas" width="800" height="600"></svg>
     <script>
         d3.csv("sample.csv").then(function(data) {
@@ -184,8 +184,6 @@
 
     </script>
 
-
-    <h3>Ignazio Perez Romero - igp4</h3>
     <svg id="graph2" width="700" height="600"></svg>
     <script>
       const svg2 = d3.select("#graph2");
@@ -356,7 +354,6 @@
                   .attr("dy", ".15em")
                   .attr("transform", "rotate(-45)");
 
-
           const xLabel = svg2.append("text")
               .attr("class", "axis-label")
               .attr("text-anchor", "middle")
@@ -381,7 +378,7 @@
           
           let colorScale = d3.scaleOrdinal()
                               .domain(["lower", "middle", "upper"]) 
-                              .range(["red", "yellow", "blue"]);  
+                              .range(["red", "yellow", "purple"]);  
 
           averagesMonths.forEach((d,i) => {
 
@@ -404,10 +401,11 @@
          .attr("width", 100)
          .attr("height", 70); 
 
+// credit for png logo of uber from this website: https://www.pngegg.com/en/png-wwwbm
 
       
       const legendData = [
-          {label: "Uptown", color: "blue"},
+          {label: "Uptown", color: "purple"},
           {label: "Midtown", color: "yellow"},
           {label: "Downtown", color: "red"} 
       ];
