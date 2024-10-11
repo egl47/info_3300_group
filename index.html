@@ -28,7 +28,11 @@
 </head>
 <body>
     <h3>Group Names/NetID's: Everett Lee - egl47, Ignazio Perez Romero - igp4, Akhil Fernando-Bell - aaf65, Gabriel Godoy - gg374</h3>
-    <svg id="canvas" width="800" height="600"></svg>
+    <svg id="canvas" width="800" height="600"></svg><br>
+    <p>This heatmap shows Uber pickup counts in New York City by hour of the day and day of the week, based on data from 2009-2015. <br>
+        The x-axis represents the days of the week, and the y-axis represents the hours of the day (0–23). The color scale on the <br>
+        right indicates the pickup count, ranging from black/purple (low counts) to yellow (high counts).</p>
+    <br><br>
     <script>
         d3.csv("sample.csv").then(function(data) {
 
@@ -188,7 +192,9 @@
 <!-- Start of graph 2 (bar graph) -->
 <!--  -->
 <!--  -->
-    <svg id="graph2" width="700" height="600"></svg>
+    <svg id="graph2" width="700" height="600"></svg><br>
+    <p>This graph displays the average Uber fare amounts across three Manhattan locations—Uptown, <br>
+        Midtown, and Downtown—for each month of the year.</p>
     <script>
       const svg2 = d3.select("#graph2");
       
